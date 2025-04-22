@@ -1,20 +1,64 @@
+'use client';
 import { Layout } from "lucide-react";
 import Link from "next/link";
+import "./globals.css";
+import { useState } from "react";
 
 export default function Home() {
+  const [showPassword, setShowPassword] = useState(false);
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <Link
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="/dashboard"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Layout className="w-4 h-4" />
-            Go to dashboard
-          </Link>
+    <div className="grid grid-rows-[00px_1fr_50px] items-center justify-items-center min-h-screen p-8 pb-20 gap-1 sm:p-20 font-[family-name:var(--font-geist-sans)]">
+      <main className="flex flex-row gap-[300px] row-start-2 items-center sm:items-start w-full max-w-[1400px]">
+        <div className="flex flex-col  items-start sm:items-start w-full h-full  mr-auto">
+          <img
+            src="/stargazerlogo.png"
+            alt="Star Gazer Logo"
+            className="rounded-lg w-full max-w-[430px] h-auto object-cover ml-14 mt-6"
+          />
+          <h1 className="text-4xl sm:text-6xl font-bold text-foreground ml-32" style={{ 
+                                fontFamily: "var(--font-geist-sans)" , 
+                                background: 'linear-gradient(to right, rgb(0, 51, 255), rgb(0, 3, 61))',
+                                WebkitBackgroundClip: 'text',
+                                backgroundClip: 'text',
+                                color: 'transparent' }}>
+            Star Gazer
+          </h1>
+        </div>
+        <div className="flex gap-4 items-start flex-col sm:flex-col w-300 max-w-[470px] bg-white p-4 sm:p-6 rounded-lg shadow-md border border-solid border-[#333] h-130 mr-30">
+          <h2 className="text-2xl sm:text-3xl font-bold ml-4 text-[rgb(0,51,255)] ml-33">
+            Đăng nhập 
+          </h2>
+          {/* Tài khoản */}
+          <div className="mb-4 ml-7 mt-4">
+            <label className="block text-[rgb(0,51,255)] text-sm font-bold mb-2">
+              Tài khoản
+            </label>
+            <input
+              type="text"
+              placeholder="Email hoặc số điện thoại"
+              className="w-[340px] text-gray-800 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {/* Mật khẩu */}
+            <div className="mb-6 mt-4">
+              <label className="block text-[rgb(0,51,255)] text-sm font-bold mb-2">
+                Mật khẩu
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Mật khẩu"
+                  className="w-full text-gray-800 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? "🙈" : "👁️"}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </main>
     </div>
