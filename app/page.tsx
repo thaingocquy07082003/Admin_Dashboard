@@ -3,9 +3,15 @@ import { Layout } from "lucide-react";
 import Link from "next/link";
 import "./globals.css";
 import { useState } from "react";
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
   const [showPassword, setShowPassword] = useState(false);
+  const router = useRouter();
+
+  const handleClick = () => {
+    router.push('/dashboard'); 
+  };
   return (
     <div className="grid grid-rows-[00px_1fr_50px] items-center justify-items-center min-h-screen p-8 pb-20 gap-1 sm:p-20 font-[family-name:var(--font-geist-sans)]">
       <main className="flex flex-row gap-[300px] row-start-2 items-center sm:items-start w-full max-w-[1400px]">
@@ -13,7 +19,7 @@ export default function Home() {
           <img
             src="/stargazerlogo.png"
             alt="Star Gazer Logo"
-            className="rounded-lg w-full max-w-[430px] h-auto object-cover ml-14 mt-6"
+            className="rounded-lg w-full max-w-[400px] h-auto object-cover ml-14 mb-0"  
           />
           <h1 className="text-4xl sm:text-6xl font-bold text-foreground ml-32" style={{ 
                                 fontFamily: "var(--font-geist-sans)" , 
@@ -24,7 +30,7 @@ export default function Home() {
             Star Gazer
           </h1>
         </div>
-        <div className="flex gap-4 items-start flex-col sm:flex-col w-300 max-w-[470px] bg-white p-4 sm:p-6 rounded-lg shadow-md border border-solid border-[#333] h-130 mr-30">
+        <div className="flex gap-4 items-start flex-col sm:flex-col w-300 max-w-[470px] bg-white p-4 sm:p-6 rounded-lg shadow-md border border-solid border-[#333] h-90 mr-30">
           <h2 className="text-2xl sm:text-3xl font-bold ml-4 text-[rgb(0,51,255)] ml-33">
             Đăng nhập 
           </h2>
@@ -58,6 +64,12 @@ export default function Home() {
                 </button>
               </div>
             </div>
+            <button
+              onClick={handleClick}
+              className="w-full bg-blue-600 text-white px-6 py-3 rounded-xl transition-all duration-300 ease-in-out hover:bg-blue-800 hover:scale-105 shadow-md hover:shadow-xl"
+            >
+              Đăng nhập
+            </button>
           </div>
         </div>
       </main>
