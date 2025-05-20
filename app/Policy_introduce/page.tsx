@@ -52,7 +52,7 @@ export default function PolicyPage() {
         <ul className="list-disc pl-6 my-4 text-foreground">
           <li>Provide, maintain, and improve our App and its services.</li>
           <li>Provide and improve the accuracy of our palm line recognition feature.</li>
-          <li>Manage your account and facilitate your use of the App's features.</li>
+          <li>Manage your account and facilitate your use of the App&apos;s features.</li>
           <li>Send you technical notices, updates, security alerts, and support messages.</li>
           <li>Respond to your comments, questions, and provide customer service.</li>
           <li>Develop new products and services.</li>
