@@ -56,6 +56,11 @@ const data = {
       url: "http://localhost:8501",
       icon: IconAi,
     },
+    {
+      title: "Policy",
+      url: "/Policy_introduce",
+      icon: IconFileDescription,
+    },
   ],
   navClouds: [
     {
