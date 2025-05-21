@@ -16,6 +16,7 @@ import {
   // IconReport,
   IconSearch,
   IconSettings,
+  IconTrash,
   // IconUsers,
   IconAi
 } from "@tabler/icons-react";
@@ -60,6 +61,11 @@ const data = {
       title: "Policy",
       url: "/Policy_introduce",
       icon: IconFileDescription,
+    },
+    {
+      title: "Delete Account",
+      url: "/DeleteAccount",
+      icon: IconTrash,
     },
   ],
   navClouds: [
