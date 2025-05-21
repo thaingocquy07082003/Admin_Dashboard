@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 
 export default function DeleteAccountPage() {
   const [email, setEmail] = useState('');
-  const router = useRouter();
+//   const router = useRouter();
 
 //   const handleBackClick = () => {
 //     router.push('/dashboard');
