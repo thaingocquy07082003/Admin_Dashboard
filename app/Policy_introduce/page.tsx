@@ -4,10 +4,6 @@ import { useRouter } from 'next/navigation';
 export default function PolicyPage() {
   const router = useRouter();
 
-  const handleBackClick = () => {
-    router.push('/dashboard');
-  };
-
   return (
     <div className="min-h-screen bg-background p-5">
       <div className="max-w-[800px] mx-auto bg-card p-8 rounded-lg shadow-lg">
