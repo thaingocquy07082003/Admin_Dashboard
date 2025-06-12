@@ -11,12 +11,6 @@ export default function PolicyPage() {
   return (
     <div className="min-h-screen bg-background p-5">
       <div className="max-w-[800px] mx-auto bg-card p-8 rounded-lg shadow-lg">
-        {/* <button
-          onClick={handleBackClick}
-          className="mb-8 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-        >
-          Quay lại
-        </button> */}
 
         <h1 className="text-3xl font-bold text-[#d9534f] text-center mb-5">Privacy Policy for StarGazerTelling</h1>
         <p className="text-center italic text-muted-foreground mb-8"><strong>Last Updated:</strong> June 12, 2025</p>
