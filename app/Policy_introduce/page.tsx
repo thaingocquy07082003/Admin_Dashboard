@@ -2,7 +2,6 @@
 import { useRouter } from 'next/navigation';
 
 export default function PolicyPage() {
-  const router = useRouter();
 
   return (
     <div className="min-h-screen bg-background p-5">
