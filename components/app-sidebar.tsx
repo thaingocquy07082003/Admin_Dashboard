@@ -14,8 +14,6 @@ import {
   // IconInnerShadowTop,
   // IconListDetails,
   // IconReport,
-  IconSearch,
-  IconSettings,
   IconTrash,
   IconUsers,
   IconAi

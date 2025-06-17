@@ -187,7 +187,7 @@ export default function Page() {
               <TableRow>
                 <TableCell colSpan={activeTab === "hidden" ? 4 : 5} className="h-24 text-center">
                   <div className="flex flex-col items-center justify-center gap-2">
-                    <p className="text-muted-foreground">You don't have any Review</p>
+                    <p className="text-muted-foreground">You don&apos;t have any Review</p>
                   </div>
                 </TableCell>
               </TableRow>

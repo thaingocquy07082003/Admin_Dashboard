@@ -59,7 +59,7 @@ export default function Page() {
         console.error('Error details:', error);
         // Add detailed error message
         setMessages(prev => [...prev, { 
-          text: "Không thể kết nối đến server. Vui lòng kiểm tra:\n1. Server đã được khởi động\n2. Địa chỉ IP và port chính xác\n3. Kết nối mạng", 
+          text: `Không thể kết nối đến server. Vui lòng kiểm tra:\n1. Server đã được khởi động\n2. Địa chỉ IP và port chính xác\n3. Kết nối mạng\n\nChi tiết lỗi: ${error instanceof Error ? error.message : 'Unknown error'}`, 
           isUser: false 
         }]);
       } finally {

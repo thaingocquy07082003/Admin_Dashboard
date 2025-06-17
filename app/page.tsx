@@ -36,6 +36,7 @@ export default function Home() {
         alert('Vui lòng sử dụng tài khoản dành cho admin');
       }
     } catch (error) {
+      console.error('Login error:', error);
       alert('Có lỗi xảy ra, vui lòng thử lại');
     }
   };
