@@ -3,12 +3,12 @@
 import * as React from "react";
 import {
   IconCamera,
-  IconChartBar,
+  // IconChartBar,
   IconDashboard,
   // IconDatabase,
   IconFileAi,
   IconFileDescription,
-  // IconFileWord,
+  IconFileWord,
   // IconFolder,
   IconHelp,
   // IconInnerShadowTop,
@@ -17,7 +17,7 @@ import {
   IconSearch,
   IconSettings,
   IconTrash,
-  // IconUsers,
+  IconUsers,
   IconAi
 } from "@tabler/icons-react";
 
@@ -44,17 +44,22 @@ const data = {
   navMain: [
     {
       title: "Dashboard",
-      url: "#",
+      url: "/dashboard",
       icon: IconDashboard,
     },
     {
-      title: "Analytics",
-      url: "#",
-      icon: IconChartBar,
+      title: "Review",
+      url: "/Review",
+      icon: IconFileWord,
+    },
+    {
+      title: "Users",
+      url: "/users",
+      icon: IconUsers,
     },
     {
       title: "Chatbot",
-      url: "http://localhost:8501",
+      url: "/chatbot",
       icon: IconAi,
     },
     {
@@ -117,21 +122,21 @@ const data = {
     },
   ],
   navSecondary: [
-    {
-      title: "Settings",
-      url: "#",
-      icon: IconSettings,
-    },
+    // {
+    //   title: "Settings",
+    //   url: "#",
+    //   icon: IconSettings,
+    // },
     {
       title: "Get Help",
       url: "#",
       icon: IconHelp,
     },
-    {
-      title: "Search",
-      url: "#",
-      icon: IconSearch,
-    },
+    // {
+    //   title: "Search",
+    //   url: "#",
+    //   icon: IconSearch,
+    // },
   ],
   documents: [],
 };
