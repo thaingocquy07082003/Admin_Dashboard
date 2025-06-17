@@ -97,7 +97,7 @@ export default function Page() {
       } catch (error) {
         // Thông báo lỗi kết nối
         setMessages(prev => [...prev, { 
-          text: `❌ Lỗi kết nối. Vui lòng kiểm tra lại kết nối và thử lại.`, 
+          text: `❌ Lỗi kết nối: ${error instanceof Error ? error.message : 'Unknown error'}. Vui lòng kiểm tra lại kết nối và thử lại.`, 
           isUser: false 
         }]);
       }
