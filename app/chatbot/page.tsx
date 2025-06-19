@@ -10,7 +10,7 @@ import { Send } from "lucide-react";
 import { useState } from "react";
 import axios from 'axios';
 
-const API_URL = 'http://127.0.0.1:5000/api/chat';
+const API_URL = 'http://16.176.9.134:5000/api/chat';
 
 // Helper function to format message with line breaks
 const formatMessage = (text: string) => {

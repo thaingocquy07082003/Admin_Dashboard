@@ -63,8 +63,8 @@ export default function Page() {
       }
 
       const endpoint = isHidden 
-        ? `http://localhost:8080/review/readed?page=${page}`
-        : `http://localhost:8080/review/all?page=${page}`;
+        ? `https://stargazer-wgpb.onrender.com/review/readed?page=${page}`
+        : `https://stargazer-wgpb.onrender.com/review/all?page=${page}`;
 
       const response = await fetch(endpoint, {
         method: 'GET',
@@ -96,7 +96,7 @@ export default function Page() {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(`http://localhost:8080/review/hidden/${reviewID}`, {
+      const response = await fetch(`https://stargazer-wgpb.onrender.com/review/hidden/${reviewID}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

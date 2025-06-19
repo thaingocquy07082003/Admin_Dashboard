@@ -62,7 +62,7 @@ export default function Page() {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(`http://localhost:8080/users?page=${page}`, {
+      const response = await fetch(`https://stargazer-wgpb.onrender.com/users?page=${page}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -111,7 +111,7 @@ export default function Page() {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(`http://localhost:8080/user/${currentBlockedStatus ? 'unblock' : 'block'}?email=${user.email}`, {
+      const response = await fetch(`https://stargazer-wgpb.onrender.com/user/${currentBlockedStatus ? 'unblock' : 'block'}?email=${user.email}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
