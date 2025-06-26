@@ -71,7 +71,7 @@ export default function Page() {
   const handleSettingsSubmit = async () => {
     if (settingsInput.trim()) {
       try {
-        const response = await fetch('http://192.168.31.149:5000/seeddata', {
+        const response = await fetch('http://localhost:5000/seeddata', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
