@@ -16,7 +16,10 @@ import {
   // IconReport,
   IconTrash,
   IconUsers,
-  IconAi
+  IconAi,
+  IconCut,
+  IconCategory,
+  IconUser
 } from "@tabler/icons-react";
 
 // import { NavDocuments } from "@/components/nav-documents";
@@ -51,8 +54,23 @@ const data = {
       icon: IconFileWord,
     },
     {
-      title: "Users",
+      title: "Stylist",
       url: "/users",
+      icon: IconUsers,
+    },
+    {
+      title: "Hair Style",
+      url: "/hair-style",
+      icon: IconCut,
+    },
+    {
+      title: "Category",
+      url: "/category",
+      icon: IconCategory,
+    },
+    {
+      title: "Account",
+      url: "/account",
       icon: IconUsers,
     },
     // {

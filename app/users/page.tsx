@@ -5,6 +5,7 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/s
 import { Separator } from "@radix-ui/react-separator";
 import { ThemeSelector } from "@/components/theme-selector";
 import { ModeToggle } from "@/components/ui/mode-toggle";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Table,
   TableBody,
@@ -14,148 +15,79 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import {
-  IconChevronLeft,
-  IconChevronRight,
-  IconChevronsLeft,
-  IconChevronsRight,
-  IconLock,
-  IconLockOpen,
-} from "@tabler/icons-react";
 import { useState, useEffect } from "react";
-import { toast } from "sonner";
+import { IconReload } from "@tabler/icons-react";
 
-interface User {
-  id: number;
+interface Stylist {
+  id: string;
+  userId: string;
   fullName: string;
-  email: string;
-  blocked: boolean;
-  verified: boolean;
+  avatarUrl: string | null;
+  experience: number;
+  rating: number;
+  totalBookings: number;
+  specialties: string[];
+  isAvailable: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
-interface UserResponse {
+interface StylistResponse {
+  statusCode: number;
   message: string;
-  data: {
-    content: User[];
-    page: {
-      size: number;
-      number: number;
-      totalElements: number;
-      totalPages: number;
-    };
-  };
+  data: Stylist[];
+  timestamp: string;
 }
 
 export default function Page() {
-  const [currentPage, setCurrentPage] = useState(0);
-  const [users, setUsers] = useState<UserResponse | null>(null);
+  const [stylists, setStylists] = useState<Stylist[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchUsers = async (page: number) => {
+  const fetchStylists = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
 
-      const response = await fetch(`https://stargazer-wgpb.onrender.com/users?page=${page}`, {
-        method: 'GET',
+      const response = await fetch("http://localhost:3002/api/v1/hairstyles/stylists/all", {
+        method: "GET",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch users');
+        throw new Error("Failed to fetch stylists");
       }
 
-      const data = await response.json();
-      setUsers(data);
+      const result: StylistResponse = await response.json();
+      setStylists(result.data ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleToggleBlock = async (userId: number, currentBlockedStatus: boolean) => {
-    try {
-      // Find the user by id to get their email
-      const user = users?.data.content.find(u => u.id === userId);
-      if (!user) {
-        throw new Error('User not found');
-      }
-
-      // Optimistically update the UI first
-      if (users) {
-        const updatedContent = users.data.content.map(user => 
-          user.id === userId ? { ...user, blocked: !currentBlockedStatus } : user
-        );
-        
-        setUsers({
-          ...users,
-          data: {
-            ...users.data,
-            content: updatedContent,
-          },
-        });
-      }
-
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await fetch(`https://stargazer-wgpb.onrender.com/user/${currentBlockedStatus ? 'unblock' : 'block'}?email=${user.email}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        // If the request fails, revert the optimistic update
-        if (users) {
-          const revertedContent = users.data.content.map(user => 
-            user.id === userId ? { ...user, blocked: currentBlockedStatus } : user
-          );
-          
-          setUsers({
-            ...users,
-            data: {
-              ...users.data,
-              content: revertedContent,
-            },
-          });
-        }
-        throw new Error(`Failed to ${currentBlockedStatus ? 'unblock' : 'block'} user`);
-      }
-
-      toast.success(`User ${currentBlockedStatus ? 'unblocked' : 'blocked'} successfully`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to update user status');
-    }
-  };
-
   useEffect(() => {
-    fetchUsers(currentPage);
-  }, [currentPage]);
+    fetchStylists();
+  }, []);
 
-  const handlePageChange = (newPage: number) => {
-    setCurrentPage(newPage);
+  const getInitials = (name: string) => {
+    const words = name.trim().split(" ").filter(Boolean);
+    if (words.length === 0) return "NA";
+    if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+    return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
   };
 
   const renderTableContent = () => {
     if (error) {
       return (
         <div className="flex items-center justify-center h-[400px]">
-          <div className="text-red-500">Error: {error}</div>
+          <div className="flex flex-col items-center gap-3">
+            <div className="text-red-500">Error: {error}</div>
+            <Button variant="outline" onClick={fetchStylists}>Thử lại</Button>
+          </div>
         </div>
       );
     }
@@ -165,14 +97,10 @@ export default function Page() {
         <div className="flex items-center justify-center h-[400px]">
           <div className="flex flex-col items-center gap-2">
             <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-            <div className="text-sm text-muted-foreground">Loading users...</div>
+            <div className="text-sm text-muted-foreground">Đang tải danh sách thợ cắt tóc...</div>
           </div>
         </div>
       );
-    }
-
-    if (!users) {
-      return null;
     }
 
     return (
@@ -180,109 +108,74 @@ export default function Page() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
-              <TableHead>Full Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Verified</TableHead>
-              <TableHead className="w-[100px]">Actions</TableHead>
+              <TableHead>Thợ cắt tóc</TableHead>
+              <TableHead>Kinh nghiệm</TableHead>
+              <TableHead>Đánh giá</TableHead>
+              <TableHead>Lượt đặt</TableHead>
+              <TableHead>Chuyên môn</TableHead>
+              <TableHead>Trạng thái</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.data.content.length === 0 ? (
+            {stylists.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center">
                   <div className="flex flex-col items-center justify-center gap-2">
-                    <p className="text-muted-foreground">No users found</p>
+                    <p className="text-muted-foreground">Không có dữ liệu stylist</p>
                   </div>
                 </TableCell>
               </TableRow>
             ) : (
-              users.data.content.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>{user.id}</TableCell>
-                  <TableCell>{user.fullName}</TableCell>
-                  <TableCell>{user.email}</TableCell>
+              stylists.map((stylist) => (
+                <TableRow key={stylist.id}>
                   <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      user.blocked ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-                    }`}>
-                      {user.blocked ? 'Blocked' : 'Active'}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-9 w-9">
+                        <AvatarImage src={stylist.avatarUrl ?? undefined} alt={stylist.fullName} />
+                        <AvatarFallback>{getInitials(stylist.fullName)}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium leading-none">{stylist.fullName}</p>
+                        <p className="text-xs text-muted-foreground mt-1">ID: {stylist.id}</p>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>{stylist.experience} năm</TableCell>
+                  <TableCell>{stylist.rating.toFixed(1)}</TableCell>
+                  <TableCell>{stylist.totalBookings}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {stylist.specialties.map((specialty) => (
+                        <span
+                          key={`${stylist.id}-${specialty}`}
+                          className="rounded-full border px-2 py-0.5 text-xs"
+                        >
+                          {specialty}
+                        </span>
+                      ))}
+                    </div>
                   </TableCell>
                   <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      user.verified ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                    }`}>
-                      {user.verified ? 'Verified' : 'Unverified'}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleToggleBlock(user.id, user.blocked)}
-                      className="hover:bg-muted"
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs ${
+                        stylist.isAvailable
+                          ? "bg-green-100 text-green-700"
+                          : "bg-red-100 text-red-700"
+                      }`}
                     >
-                      {user.blocked ? (
-                        <IconLockOpen className="h-4 w-4" />
-                      ) : (
-                        <IconLock className="h-4 w-4" />
-                      )}
-                      <span className="sr-only">{user.blocked ? 'Unblock user' : 'Block user'}</span>
-                    </Button>
+                      {stylist.isAvailable ? "Sẵn sàng" : "Bận"}
+                    </span>
                   </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
-        
-        {/* Pagination */}
-        <div className="flex items-center justify-center px-2 py-4">
-          <div className="flex items-center gap-2">
-            <div className="text-sm font-medium">
-              Page {users.data.page.number + 1} of {users.data.page.totalPages}
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                className="h-8 w-8 p-0"
-                onClick={() => handlePageChange(0)}
-                disabled={users.data.page.number === 0}
-              >
-                <span className="sr-only">Go to first page</span>
-                <IconChevronsLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                className="h-8 w-8 p-0"
-                onClick={() => handlePageChange(users.data.page.number - 1)}
-                disabled={users.data.page.number === 0}
-              >
-                <span className="sr-only">Go to previous page</span>
-                <IconChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                className="h-8 w-8 p-0"
-                onClick={() => handlePageChange(users.data.page.number + 1)}
-                disabled={users.data.page.number === users.data.page.totalPages - 1}
-              >
-                <span className="sr-only">Go to next page</span>
-                <IconChevronRight className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                className="h-8 w-8 p-0"
-                onClick={() => handlePageChange(users.data.page.totalPages - 1)}
-                disabled={users.data.page.number === users.data.page.totalPages - 1}
-              >
-                <span className="sr-only">Go to last page</span>
-                <IconChevronsRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+        <div className="flex items-center justify-end px-4 py-4">
+          <Button variant="outline" size="sm" onClick={fetchStylists}>
+            <IconReload className="h-4 w-4" />
+            Tải lại
+          </Button>
         </div>
       </>
     );
@@ -306,7 +199,7 @@ export default function Page() {
                 orientation="vertical"
                 className="mx-2 data-[orientation=vertical]:h-4"
                 />
-                <h1 className="text-base font-medium">User Management</h1>
+                <h1 className="text-base font-medium">Stylist Management</h1>
                 <div className="ml-auto flex items-center gap-2">
                 <ThemeSelector />
                 <ModeToggle />
