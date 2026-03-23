@@ -35,8 +35,8 @@ import {
 
 const data = {
   user: {
-    name: "shadcn",
-    email: "m@example.com",
+    name: "admin01",
+    email: "admin01@gmail,com",
     avatar: "/avatars/shadcn.jpg",
   },
   navMain: [
@@ -46,8 +46,8 @@ const data = {
       icon: IconDashboard,
     },
     {
-      title: "Review",
-      url: "/Review",
+      title: "Appointment",
+      url: "/appointment",
       icon: IconFileWord,
     },
     {
@@ -55,11 +55,11 @@ const data = {
       url: "/users",
       icon: IconUsers,
     },
-    {
-      title: "Chatbot",
-      url: "/chatbot",
-      icon: IconAi,
-    },
+    // {
+    //   title: "Chatbot",
+    //   url: "/chatbot",
+    //   icon: IconAi,
+    // },
     {
       title: "Policy",
       url: "/Policy_introduce",

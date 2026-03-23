@@ -6,11 +6,11 @@ export default function PolicyPage() {
     <div className="min-h-screen bg-background p-5">
       <div className="max-w-[800px] mx-auto bg-card p-8 rounded-lg shadow-lg">
 
-        <h1 className="text-3xl font-bold text-[#d9534f] text-center mb-5">Privacy Policy for StarGazerTelling</h1>
+        <h1 className="text-3xl font-bold text-[#d9534f] text-center mb-5">Privacy Policy for HairStyle</h1>
         <p className="text-center italic text-muted-foreground mb-8"><strong>Last Updated:</strong> June 12, 2025</p>
 
         <h2 className="text-2xl font-semibold text-[#5cb85c] border-b-2 border-border pb-2 mt-8">Introduction</h2>
-        <p className="my-4 text-foreground">Welcome to StarGazerTelling (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;). We respect your privacy and are committed to protecting your personal data. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile application (&quot;App&quot;). A little bit about me (us), I am an individual programmer who is on the path of developing applications that help life and users. This application is a product that is being completed and improved over time. Let&apos;s help each other in the coming time.</p>
+        <p className="my-4 text-foreground">Welcome to HairStyle (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;). We respect your privacy and are committed to protecting your personal data. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile application (&quot;App&quot;). A little bit about me (us), I am an individual programmer who is on the path of developing applications that help life and users. This application is a product that is being completed and improved over time. Let&apos;s help each other in the coming time.</p>
 
         <h2 className="text-2xl font-semibold text-[#5cb85c] border-b-2 border-border pb-2 mt-8">Information We Collect</h2>
 
