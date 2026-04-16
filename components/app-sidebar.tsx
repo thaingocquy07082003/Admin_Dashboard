@@ -3,26 +3,18 @@
 import * as React from "react";
 import {
   IconCamera,
-  // IconChartBar,
   IconDashboard,
-  // IconDatabase,
   IconFileAi,
   IconFileDescription,
   IconFileWord,
-  // IconFolder,
   IconHelp,
-  // IconInnerShadowTop,
-  // IconListDetails,
-  // IconReport,
   IconTrash,
   IconUsers,
-  IconAi,
   IconCut,
   IconCategory,
-  IconUser
+  IconCalendarEvent,   // <-- thêm icon lịch làm việc
 } from "@tabler/icons-react";
 
-// import { NavDocuments } from "@/components/nav-documents";
 import { NavMain } from "@/components/nav-main";
 import { NavSecondary } from "@/components/nav-secondary";
 import { NavUser } from "@/components/nav-user";
@@ -39,7 +31,7 @@ import {
 const data = {
   user: {
     name: "admin01",
-    email: "admin01@gmail,com",
+    email: "admin01@gmail.com",
     avatar: "/avatars/shadcn.jpg",
   },
   navMain: [
@@ -59,6 +51,11 @@ const data = {
       icon: IconUsers,
     },
     {
+      title: "Lịch làm việc",          // <-- tab mới
+      url: "/schedule",
+      icon: IconCalendarEvent,
+    },
+    {
       title: "Hair Style",
       url: "/hair-style",
       icon: IconCut,
@@ -73,11 +70,6 @@ const data = {
       url: "/account",
       icon: IconUsers,
     },
-    // {
-    //   title: "Chatbot",
-    //   url: "/chatbot",
-    //   icon: IconAi,
-    // },
     {
       title: "Policy",
       url: "/Policy_introduce",
@@ -89,72 +81,13 @@ const data = {
       icon: IconTrash,
     },
   ],
-  navClouds: [
-    {
-      title: "Capture",
-      icon: IconCamera,
-      isActive: true,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Proposal",
-      icon: IconFileDescription,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Prompts",
-      icon: IconFileAi,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-  ],
   navSecondary: [
-    // {
-    //   title: "Settings",
-    //   url: "#",
-    //   icon: IconSettings,
-    // },
     {
       title: "Get Help",
       url: "#",
       icon: IconHelp,
     },
-    // {
-    //   title: "Search",
-    //   url: "#",
-    //   icon: IconSearch,
-    // },
   ],
-  documents: [],
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -169,9 +102,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             >
               <a href="#">
                 <img
-                  src="/stargazerlogo.png" 
+                  src="/stargazerlogo.png"
                   alt="Dashboard Icon"
-                  className="!size-6" 
+                  className="!size-6"
                 />
                 <span className="text-base font-semibold">
                   StarGazer Dashboard
