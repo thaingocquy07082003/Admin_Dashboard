@@ -17,6 +17,16 @@ import {
   IconEye,
   IconSearch,
   IconFilter,
+  IconX,
+  IconUser,
+  IconPhone,
+  IconMail,
+  IconClock,
+  IconCurrencyDong,
+  IconScissors,
+  IconNotes,
+  IconBan,
+  IconCheck,
 } from '@tabler/icons-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -58,6 +68,16 @@ interface Appointment {
   cancelledAt?: string;
 }
 
+interface AppointmentDetail extends Appointment {
+  stylistName: string;
+  stylistAvatar: string | null;
+  hairstyleName: string;
+  hairstyleImage: string | null;
+  customerFullName: string;
+  customerUserEmail: string;
+  customerUserPhone: string;
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<string, { label: string; textClass: string; bgClass: string; borderClass: string; dotClass: string }> = {
@@ -71,6 +91,11 @@ const STATUS_CONFIG: Record<string, { label: string; textClass: string; bgClass:
 function formatDate(dateStr: string) {
   const d = new Date(dateStr);
   return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function formatDateTime(dateStr: string) {
+  const d = new Date(dateStr);
+  return d.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 function formatCurrency(amount: number) {
@@ -95,7 +120,7 @@ function StatCard({
   label: string;
   value: number;
   icon: React.ElementType;
-  colorClass: string; // e.g. "violet" | "sky" | "indigo" | "amber" | "blue" | "emerald" | "red"
+  colorClass: string;
   sub?: string;
 }) {
   const colorMap: Record<string, { border: string; iconBg: string; iconText: string }> = {
@@ -125,6 +150,256 @@ function StatCard({
   );
 }
 
+// ─── Detail Modal ─────────────────────────────────────────────────────────────
+
+function DetailRow({ icon: Icon, label, value, valueClass }: {
+  icon: React.ElementType;
+  label: string;
+  value: React.ReactNode;
+  valueClass?: string;
+}) {
+  return (
+    <div className="flex items-start gap-2.5 py-2 border-b border-border/40 last:border-0">
+      <div className="p-1 rounded-lg bg-muted shrink-0 mt-0.5">
+        <Icon className="w-3 h-3 text-muted-foreground" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-muted-foreground/80 mb-0.5">{label}</p>
+        <p className={`text-sm font-medium break-words ${valueClass ?? ''}`}>{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function AppointmentDetailModal({
+  appointmentId,
+  onClose,
+}: {
+  appointmentId: string;
+  onClose: () => void;
+}) {
+  const [detail, setDetail] = useState<AppointmentDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      setError('Không tìm thấy token.');
+      setLoading(false);
+      return;
+    }
+
+    fetch(`http://localhost:3003/api/v1/appointments/${appointmentId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(res => {
+        if (res.statusCode === 200) {
+          setDetail(res.data);
+        } else {
+          setError(res.message ?? 'Không thể tải chi tiết.');
+        }
+      })
+      .catch(() => setError('Lỗi kết nối. Vui lòng thử lại.'))
+      .finally(() => setLoading(false));
+  }, [appointmentId]);
+
+  // Close on backdrop click
+  const handleBackdrop = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) onClose();
+  };
+
+  // Close on Escape key
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+      onClick={handleBackdrop}
+    >
+      <div className="bg-card text-card-foreground rounded-xl border border-border shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in-0 zoom-in-95 duration-200">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border/50 shrink-0">
+          <div>
+            <h2 className="text-base font-semibold">Chi tiết lịch hẹn</h2>
+            <p className="text-xs text-muted-foreground mt-1 font-mono">{appointmentId}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground shrink-0"
+          >
+            <IconX className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto">
+          {loading && (
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+              <IconLoader2 className="w-7 h-7 animate-spin" />
+              <span className="text-sm">Đang tải chi tiết...</span>
+            </div>
+          )}
+
+          {error && (
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-red-400">
+              <IconAlertCircle className="w-7 h-7" />
+              <span className="text-sm">{error}</span>
+            </div>
+          )}
+
+          {detail && (
+            <div className="p-6 space-y-6">
+
+              {/* Status + hairstyle image header */}
+              <div className="flex items-start gap-4">
+                {detail.hairstyleImage && (
+                  <img
+                    src={detail.hairstyleImage}
+                    alt={detail.hairstyleName}
+                    className="w-20 h-20 rounded-xl object-cover border border-border shrink-0"
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <StatusBadge status={detail.status} />
+                  </div>
+                  <h3 className="text-lg font-bold truncate">{detail.hairstyleName}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {formatDate(detail.appointmentDate)} &bull; {detail.startTime.slice(0, 5)} – {detail.endTime.slice(0, 5)} ({detail.duration} phút)
+                  </p>
+                </div>
+              </div>
+
+              {/* Two-column grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-0 sm:gap-6">
+
+                {/* Customer info */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Khách hàng</p>
+                  <div className="bg-muted/40 rounded-xl px-4 py-1">
+                    <DetailRow icon={IconUser} label="Họ tên" value={detail.customerFullName || detail.customerName} />
+                    <DetailRow icon={IconPhone} label="Điện thoại" value={detail.customerUserPhone || detail.customerPhone} />
+                    <DetailRow icon={IconMail} label="Email" value={detail.customerUserEmail || detail.customerEmail} />
+                  </div>
+                </div>
+
+                {/* Stylist info */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Thợ cắt tóc</p>
+                  <div className="bg-muted/40 rounded-xl px-4 py-1">
+                    <div className="flex items-start gap-3 py-2.5 border-b border-border/50">
+                      <div className="p-1.5 rounded-lg bg-muted shrink-0 mt-0.5">
+                        <IconScissors className="w-3.5 h-3.5 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground mb-0.5">Tên thợ</p>
+                        <div className="flex items-center gap-2">
+                          {detail.stylistAvatar && (
+                            <img src={detail.stylistAvatar} alt={detail.stylistName} className="w-5 h-5 rounded-full object-cover" />
+                          )}
+                          <p className="text-sm font-medium">{detail.stylistName}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <DetailRow icon={IconScissors} label="Kiểu tóc" value={detail.hairstyleName} />
+                    <DetailRow
+                      icon={IconClock}
+                      label="Thời lượng"
+                      value={`${detail.duration} phút`}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Thanh toán</p>
+                <div className="bg-muted/40 rounded-xl px-4 py-1">
+                  <DetailRow
+                    icon={IconCurrencyDong}
+                    label="Tổng giá"
+                    value={formatCurrency(detail.price)}
+                    valueClass="text-primary font-bold"
+                  />
+                  {detail.depositAmount > 0 && (
+                    <DetailRow
+                      icon={IconCurrencyDong}
+                      label="Đặt cọc"
+                      value={
+                        <span className="flex items-center gap-1.5">
+                          {formatCurrency(detail.depositAmount)}
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full ${detail.depositPaid ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'}`}>
+                            {detail.depositPaid ? '✓ Đã cọc' : '✗ Chưa cọc'}
+                          </span>
+                        </span>
+                      }
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Timeline */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Lịch sử trạng thái</p>
+                <div className="bg-muted/40 rounded-xl px-4 py-1">
+                  <DetailRow icon={IconCalendar} label="Ngày tạo" value={formatDateTime(detail.createdAt)} />
+                  {detail.confirmedAt && (
+                    <DetailRow icon={IconCheck} label="Xác nhận lúc" value={formatDateTime(detail.confirmedAt)} valueClass="text-blue-600 dark:text-blue-400" />
+                  )}
+                  {detail.completedAt && (
+                    <DetailRow icon={IconCheck} label="Hoàn thành lúc" value={formatDateTime(detail.completedAt)} valueClass="text-emerald-600 dark:text-emerald-400" />
+                  )}
+                  {detail.cancelledAt && (
+                    <DetailRow icon={IconBan} label="Hủy lúc" value={formatDateTime(detail.cancelledAt)} valueClass="text-red-500 dark:text-red-400" />
+                  )}
+                </div>
+              </div>
+
+              {/* Notes / Cancellation reason */}
+              {(detail.notes || detail.cancellationReason) && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Ghi chú</p>
+                  <div className="bg-muted/40 rounded-xl px-4 py-1">
+                    {detail.cancellationReason && (
+                      <DetailRow
+                        icon={IconBan}
+                        label="Lý do hủy"
+                        value={detail.cancellationReason}
+                        valueClass="text-red-500 dark:text-red-400"
+                      />
+                    )}
+                    {detail.notes && (
+                      <DetailRow icon={IconNotes} label="Ghi chú" value={detail.notes} />
+                    )}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-border bg-muted/20 shrink-0 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium rounded-xl border border-border hover:bg-muted transition-colors"
+          >
+            Đóng
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AppointmentsPage() {
@@ -134,6 +409,7 @@ export default function AppointmentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -299,12 +575,13 @@ export default function AppointmentsPage() {
                     <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Giá</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Đặt cọc</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Ghi chú</th>
+                    <th className="text-center px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Chi tiết</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="text-center py-16 text-muted-foreground">
+                      <td colSpan={9} className="text-center py-16 text-muted-foreground">
                         <IconCalendarX className="w-8 h-8 mx-auto mb-2 opacity-40" />
                         <p className="text-sm">Không có lịch hẹn nào</p>
                       </td>
@@ -379,6 +656,17 @@ export default function AppointmentsPage() {
                             <span className="text-xs text-muted-foreground/40">—</span>
                           )}
                         </td>
+
+                        {/* View detail button */}
+                        <td className="px-4 py-3.5 text-center">
+                          <button
+                            onClick={() => setSelectedAppointmentId(apt.id)}
+                            title="Xem chi tiết"
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-border bg-background hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 dark:hover:bg-blue-950/30 dark:hover:border-blue-700 dark:hover:text-blue-400 text-muted-foreground transition-colors"
+                          >
+                            <IconEye className="w-4 h-4" />
+                          </button>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -408,6 +696,15 @@ export default function AppointmentsPage() {
             )}
           </div>
         </div>
+
+        {/* ── Detail Modal ── */}
+        {selectedAppointmentId && (
+          <AppointmentDetailModal
+            appointmentId={selectedAppointmentId}
+            onClose={() => setSelectedAppointmentId(null)}
+          />
+        )}
+
       </SidebarInset>
     </SidebarProvider>
   );
