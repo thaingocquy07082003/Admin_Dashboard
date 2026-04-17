@@ -8,6 +8,8 @@ import {
   IconUser,
   IconClock,
   IconFilter,
+  IconRefresh,
+  IconPlus,
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,15 +21,37 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { AddScheduleDialog } from "@/components/add-schedule-dialog";
 
-const STYLISTS = [
-  { id: "all", name: "Tất cả thợ", color: "#6366f1" },
-  { id: "1", name: "Nguyễn Văn An", color: "#0ea5e9" },
-  { id: "2", name: "Trần Thị Bình", color: "#10b981" },
-  { id: "3", name: "Lê Hoàng Nam", color: "#f59e0b" },
-  { id: "4", name: "Phạm Thị Hoa", color: "#ec4899" },
-  { id: "5", name: "Đỗ Minh Tuấn", color: "#8b5cf6" },
+// ===== API types =====
+interface ApiSchedule {
+  id: string;
+  stylistId: string;
+  stylistName: string;
+  workDate: string;   // ISO
+  startTime: string;  // "HH:mm:ss"
+  endTime: string;    // "HH:mm:ss"
+  isAvailable: boolean;
+  isDayOff: boolean;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface ApiResponse {
+  statusCode: number;
+  message: string;
+  data: ApiSchedule[];
+}
+
+const API_URL = "http://localhost:3003/api/v1/schedules";
+
+// Palette màu giữ nguyên tinh thần như bản cũ
+const STYLIST_COLORS = [
+  "#0ea5e9", "#10b981", "#f59e0b", "#ec4899",
+  "#8b5cf6", "#ef4444", "#06b6d4", "#84cc16",
+  "#f97316", "#6366f1",
 ];
 
 type Shift = "morning" | "afternoon" | "fullday" | "off";
@@ -35,40 +59,42 @@ type Shift = "morning" | "afternoon" | "fullday" | "off";
 interface ScheduleEntry {
   stylistId: string;
   shift: Shift;
-  note?: string;
+  startTime?: string;
+  endTime?: string;
+  notes?: string | null;
 }
 
 interface DaySchedule {
-  [key: string]: ScheduleEntry; // key = stylistId
+  [stylistId: string]: ScheduleEntry;
 }
 
 interface MonthSchedule {
   [day: number]: DaySchedule;
 }
 
-function generateSchedule(year: number, month: number): MonthSchedule {
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const schedule: MonthSchedule = {};
-  const shifts: Shift[] = ["morning", "afternoon", "fullday", "off"];
-  const seed = year * 100 + month;
+// ===== Helpers =====
+function parseHour(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return (h || 0) + (m || 0) / 60;
+}
 
-  for (let day = 1; day <= daysInMonth; day++) {
-    schedule[day] = {};
-    STYLISTS.filter((s) => s.id !== "all").forEach((stylist, si) => {
-      const hash = (seed * 31 + day * 17 + si * 7) % 10;
-      let shift: Shift;
-      if (hash < 3) shift = "fullday";
-      else if (hash < 5) shift = "morning";
-      else if (hash < 7) shift = "afternoon";
-      else shift = "off";
+function deriveShift(item: ApiSchedule): Shift {
+  if (item.isDayOff || !item.isAvailable) return "off";
+  const start = parseHour(item.startTime);
+  const end = parseHour(item.endTime);
+  const duration = end - start;
+  if (duration >= 8 || (start <= 10 && end >= 17)) return "fullday";
+  if (end <= 13.5) return "morning";
+  if (start >= 12) return "afternoon";
+  return "fullday";
+}
 
-      const dow = new Date(year, month, day).getDay();
-      if (dow === 0) shift = "off";
-
-      schedule[day][stylist.id] = { stylistId: stylist.id, shift };
-    });
-  }
-  return schedule;
+function formatTimeRange(start?: string, end?: string, shift?: Shift) {
+  if (start && end) return `${start.slice(0, 5)} - ${end.slice(0, 5)}`;
+  // Fallback mô phỏng thời gian cũ khi không có dữ liệu
+  if (shift === "morning") return "7:00 - 13:00";
+  if (shift === "afternoon") return "13:00 - 19:00";
+  return "7:00 - 19:00";
 }
 
 const SHIFT_LABELS: Record<Shift, string> = {
@@ -94,12 +120,73 @@ export function ScheduleView() {
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [selectedStylist, setSelectedStylist] = useState("all");
   const [selectedDay, setSelectedDay] = useState<number | null>(today.getDate());
-  const [viewMode, setViewMode] = useState<"month" | "week">("month");
 
-  const schedule = React.useMemo(
-    () => generateSchedule(currentYear, currentMonth),
-    [currentYear, currentMonth]
-  );
+  const [rawData, setRawData] = useState<ApiSchedule[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+
+  // Fetch data từ API
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(API_URL, { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json: ApiResponse = await res.json();
+      if (json.statusCode !== 200) throw new Error(json.message || "Lỗi dữ liệu");
+      setRawData(json.data || []);
+    } catch (err) {
+      console.error("Fetch schedules error:", err);
+      setError(err instanceof Error ? err.message : "Không thể tải lịch");
+      setRawData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Danh sách thợ (giữ cấu trúc giống STYLISTS cũ: có "all" + các thợ thật)
+  const stylistsAll = useMemo(() => {
+    const map = new Map<string, string>();
+    rawData.forEach(item => {
+      if (!map.has(item.stylistId)) map.set(item.stylistId, item.stylistName);
+    });
+    const list = Array.from(map.entries())
+      .sort((a, b) => a[1].localeCompare(b[1], "vi"))
+      .map(([id, name], idx) => ({
+        id,
+        name,
+        color: STYLIST_COLORS[idx % STYLIST_COLORS.length],
+      }));
+    return [{ id: "all", name: "Tất cả thợ", color: "#6366f1" }, ...list];
+  }, [rawData]);
+
+  // schedule của tháng hiện tại — thay generateSchedule bằng index từ API
+  const schedule: MonthSchedule = useMemo(() => {
+    const res: MonthSchedule = {};
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    for (let d = 1; d <= daysInMonth; d++) res[d] = {};
+
+    rawData.forEach(item => {
+      // workDate dạng ISO UTC — dùng 10 ký tự đầu để tránh lệch timezone
+      const dateStr = item.workDate.slice(0, 10); // "YYYY-MM-DD"
+      const [y, m, d] = dateStr.split("-").map(Number);
+      if (y !== currentYear || m - 1 !== currentMonth) return;
+      if (!res[d]) res[d] = {};
+      res[d][item.stylistId] = {
+        stylistId: item.stylistId,
+        shift: deriveShift(item),
+        startTime: item.startTime,
+        endTime: item.endTime,
+        notes: item.notes,
+      };
+    });
+    return res;
+  }, [rawData, currentYear, currentMonth]);
 
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
@@ -125,21 +212,8 @@ export function ScheduleView() {
   };
 
   const filteredStylists = selectedStylist === "all"
-    ? STYLISTS.filter(s => s.id !== "all")
-    : STYLISTS.filter(s => s.id === selectedStylist);
-
-  const getDayShiftSummary = (day: number) => {
-    const dayData = schedule[day] || {};
-    if (selectedStylist !== "all") {
-      return dayData[selectedStylist] ? [dayData[selectedStylist].shift] : [];
-    }
-    return Object.values(dayData).map(e => e.shift);
-  };
-
-  const hasWorkingStylists = (day: number) => {
-    const shifts = getDayShiftSummary(day);
-    return shifts.some(s => s !== "off");
-  };
+    ? stylistsAll.filter(s => s.id !== "all")
+    : stylistsAll.filter(s => s.id === selectedStylist);
 
   const getWorkingCount = (day: number) => {
     const dayData = schedule[day] || {};
@@ -166,6 +240,14 @@ export function ScheduleView() {
           <p className="text-sm text-muted-foreground mt-0.5">Quản lý ca làm việc của thợ cắt tóc</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+            <Button size="sm" onClick={() => setAddDialogOpen(true)}>
+                <IconPlus className="size-4" />
+                Thêm lịch
+            </Button>
+          <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
+            <IconRefresh className={`size-4 ${loading ? "animate-spin" : ""}`} />
+            Làm mới
+          </Button>
           <Button variant="outline" size="sm" onClick={goToToday}>
             <IconCalendar className="size-4" />
             Hôm nay
@@ -176,7 +258,7 @@ export function ScheduleView() {
               <SelectValue placeholder="Chọn thợ" />
             </SelectTrigger>
             <SelectContent>
-              {STYLISTS.map(s => (
+              {stylistsAll.map(s => (
                 <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
               ))}
             </SelectContent>
@@ -184,9 +266,17 @@ export function ScheduleView() {
         </div>
       </div>
 
+      {/* Error banner - chỉ hiện khi có lỗi, không ảnh hưởng layout mặc định */}
+      {error && (
+        <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-900 text-sm">
+          <span className="text-red-700 dark:text-red-300">Không tải được dữ liệu: {error}</span>
+          <Button variant="outline" size="sm" onClick={fetchData}>Thử lại</Button>
+        </div>
+      )}
+
       {/* Stylist Legend */}
       <div className="flex flex-wrap gap-2">
-        {STYLISTS.filter(s => s.id !== "all").map(stylist => (
+        {stylistsAll.filter(s => s.id !== "all").map(stylist => (
           <button
             key={stylist.id}
             onClick={() => setSelectedStylist(selectedStylist === stylist.id ? "all" : stylist.id)}
@@ -249,6 +339,12 @@ export function ScheduleView() {
                     <IconChevronRight className="size-4" />
                   </Button>
                 </div>
+                {loading && (
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    <IconRefresh className="size-3 animate-spin" />
+                    Đang tải...
+                  </span>
+                )}
               </div>
             </CardHeader>
             <CardContent className="pt-0">
@@ -342,9 +438,14 @@ export function ScheduleView() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0 space-y-2">
+                {filteredStylists.length === 0 && !loading && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Chưa có dữ liệu thợ
+                  </p>
+                )}
                 {filteredStylists.map(stylist => {
                   const entry = schedule[selectedDay]?.[stylist.id];
-                  const shift = entry?.shift || "off";
+                  const shift: Shift = entry?.shift || "off";
                   const colors = SHIFT_COLORS[shift];
 
                   return (
@@ -357,14 +458,14 @@ export function ScheduleView() {
                           className="size-7 rounded-full flex items-center justify-center text-xs font-medium text-white"
                           style={{ backgroundColor: stylist.color }}
                         >
-                          {stylist.name.split(" ").pop()?.charAt(0)}
+                          {stylist.name.trim().split(/\s+/).pop()?.charAt(0).toUpperCase()}
                         </div>
                         <div>
                           <p className={`text-sm font-medium ${colors.text}`}>{stylist.name}</p>
                           {shift !== "off" && (
                             <p className="text-xs text-muted-foreground flex items-center gap-0.5">
                               <IconClock className="size-3" />
-                              {shift === "morning" ? "7:00 - 13:00" : shift === "afternoon" ? "13:00 - 19:00" : "7:00 - 19:00"}
+                              {formatTimeRange(entry?.startTime, entry?.endTime, shift)}
                             </p>
                           )}
                         </div>
@@ -377,20 +478,25 @@ export function ScheduleView() {
                 })}
 
                 {/* Summary */}
-                <div className="pt-2 border-t">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Đi làm</span>
-                    <span className="font-medium text-green-600">
-                      {filteredStylists.filter(s => schedule[selectedDay]?.[s.id]?.shift !== "off").length} người
-                    </span>
+                {filteredStylists.length > 0 && (
+                  <div className="pt-2 border-t">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Đi làm</span>
+                      <span className="font-medium text-green-600">
+                        {filteredStylists.filter(s => schedule[selectedDay]?.[s.id]?.shift && schedule[selectedDay]?.[s.id]?.shift !== "off").length} người
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm mt-1">
+                      <span className="text-muted-foreground">Nghỉ</span>
+                      <span className="font-medium text-gray-400">
+                        {filteredStylists.filter(s => {
+                          const sh = schedule[selectedDay]?.[s.id]?.shift;
+                          return !sh || sh === "off";
+                        }).length} người
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between text-sm mt-1">
-                    <span className="text-muted-foreground">Nghỉ</span>
-                    <span className="font-medium text-gray-400">
-                      {filteredStylists.filter(s => schedule[selectedDay]?.[s.id]?.shift === "off").length} người
-                    </span>
-                  </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           ) : (
@@ -410,7 +516,7 @@ export function ScheduleView() {
             <CardContent className="pt-0 space-y-3">
               {filteredStylists.slice(0, 4).map(stylist => {
                 const workDays = Object.values(schedule).filter(
-                  day => day[stylist.id]?.shift !== "off"
+                  day => day[stylist.id]?.shift && day[stylist.id].shift !== "off"
                 ).length;
                 const totalDays = daysInMonth;
                 const pct = Math.round((workDays / totalDays) * 100);
@@ -437,6 +543,12 @@ export function ScheduleView() {
           </Card>
         </div>
       </div>
+      {/* Dialog thêm lịch */}
+      <AddScheduleDialog
+        open={addDialogOpen}
+        onClose={() => setAddDialogOpen(false)}
+        onSuccess={fetchData}
+      />
     </div>
   );
 }
