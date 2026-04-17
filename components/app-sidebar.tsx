@@ -28,6 +28,15 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
+type UserRole = "admin" | "stylist" | string | null;
+
+const STYLIST_HIDDEN_TITLES = new Set([
+  "Category",
+  "Account",
+  "Policy",
+  "Delete Account",
+]);
+
 const data = {
   user: {
     name: "admin01",
@@ -91,6 +100,29 @@ const data = {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const [userRole, setUserRole] = React.useState<UserRole>(null);
+
+  React.useEffect(() => {
+    try {
+      const storedUser = localStorage.getItem("user");
+
+      if (!storedUser) {
+        setUserRole(null);
+        return;
+      }
+
+      const parsedUser = JSON.parse(storedUser) as { role?: string };
+      setUserRole(parsedUser.role ?? null);
+    } catch {
+      setUserRole(null);
+    }
+  }, []);
+
+  const visibleNavMain =
+    userRole === "stylist"
+      ? data.navMain.filter((item) => !STYLIST_HIDDEN_TITLES.has(item.title))
+      : data.navMain;
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -107,7 +139,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   className="!size-6"
                 />
                 <span className="text-base font-semibold">
-                  StarGazer Dashboard
+                  HairStyle Dashboard
                 </span>
               </a>
             </SidebarMenuButton>
@@ -115,7 +147,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
+        <NavMain items={visibleNavMain} />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
