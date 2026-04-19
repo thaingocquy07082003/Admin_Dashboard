@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import {
+  IconBell,
   IconCamera,
   IconDashboard,
   IconFileAi,
@@ -36,6 +37,8 @@ const STYLIST_HIDDEN_TITLES = new Set([
   "Policy",
   "Delete Account",
 ]);
+
+const STYLIST_ONLY_TITLES = new Set(["Notification", "Service"]);
 
 const data = {
   user: {
@@ -89,6 +92,16 @@ const data = {
       url: "/DeleteAccount",
       icon: IconTrash,
     },
+    {
+      title: "Notification",
+      url: "/notification",
+      icon: IconBell,
+    },
+    {
+      title: "Service",
+      url: "/service",
+      icon: IconCamera,
+    },
   ],
   navSecondary: [
     {
@@ -118,10 +131,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     }
   }, []);
 
+  const normalizedRole = userRole?.toLowerCase();
+
   const visibleNavMain =
-    userRole === "stylist"
+    normalizedRole === "stylist"
       ? data.navMain.filter((item) => !STYLIST_HIDDEN_TITLES.has(item.title))
-      : data.navMain;
+      : data.navMain.filter((item) => !STYLIST_ONLY_TITLES.has(item.title));
 
   return (
     <Sidebar collapsible="icon" {...props}>
