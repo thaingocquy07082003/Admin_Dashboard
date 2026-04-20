@@ -114,6 +114,8 @@ const data = {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [userRole, setUserRole] = React.useState<UserRole>(null);
+  const [userEmail, setUserEmail] = React.useState<string>("admin01@gmail.com");
+  const [userName, setUserName] = React.useState<string>("admin01");
 
   React.useEffect(() => {
     try {
@@ -124,8 +126,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         return;
       }
 
-      const parsedUser = JSON.parse(storedUser) as { role?: string };
+      const parsedUser = JSON.parse(storedUser) as { 
+        role?: string;
+        email?: string;
+        fullName?: string;
+      };
+      
       setUserRole(parsedUser.role ?? null);
+      setUserEmail(parsedUser.email ?? "admin01@gmail.com");
+      setUserName(parsedUser.fullName ?? parsedUser.role ?? "admin01");
     } catch {
       setUserRole(null);
     }
@@ -137,6 +146,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     normalizedRole === "stylist"
       ? data.navMain.filter((item) => !STYLIST_HIDDEN_TITLES.has(item.title))
       : data.navMain.filter((item) => !STYLIST_ONLY_TITLES.has(item.title));
+
+  // ✅ Cập nhật user data với email và name thực tế
+  const userData = {
+    name: userName,
+    email: userEmail,
+    avatar: "/avatars/shadcn.jpg",
+  };
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -166,7 +182,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={userData} />
       </SidebarFooter>
     </Sidebar>
   );
