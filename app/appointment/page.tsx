@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -27,6 +27,7 @@ import {
   IconNotes,
   IconBan,
   IconCheck,
+  IconPencil,
 } from '@tabler/icons-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -47,6 +48,7 @@ interface Appointment {
   customerId: string;
   stylistId: string;
   hairstyleId: string;
+  serviceIds?: string[];
   appointmentDate: string;
   startTime: string;
   endTime: string;
@@ -76,6 +78,36 @@ interface AppointmentDetail extends Appointment {
   customerFullName: string;
   customerUserEmail: string;
   customerUserPhone: string;
+}
+
+interface RefStylist {
+  id: string;
+  fullName?: string;
+  name?: string;
+}
+
+interface RefHairstyle {
+  id: string;
+  name: string;
+}
+
+interface RefService {
+  id: string;
+  name: string;
+}
+
+interface AppointmentUpdatePayload {
+  stylistId?: string;
+  hairstyleId?: string;
+  serviceIds?: string[];
+  customerName?: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  notes?: string;
+  status?: Appointment['status'];
+  price?: number;
+  depositAmount?: number;
+  depositPaid?: boolean;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -400,18 +432,293 @@ function AppointmentDetailModal({
   );
 }
 
+function AppointmentEditModal({
+  appointment,
+  stylists,
+  hairstyles,
+  services,
+  onClose,
+  onSuccess,
+}: {
+  appointment: Appointment;
+  stylists: RefStylist[];
+  hairstyles: RefHairstyle[];
+  services: RefService[];
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [form, setForm] = useState({
+    stylistId: appointment.stylistId,
+    hairstyleId: appointment.hairstyleId,
+    appointmentDate: appointment.appointmentDate?.slice(0, 10) ?? '',
+    startTime: appointment.startTime?.slice(0, 5) ?? '',
+    duration: String(appointment.duration ?? 0),
+    customerName: appointment.customerName ?? '',
+    customerPhone: appointment.customerPhone ?? '',
+    customerEmail: appointment.customerEmail ?? '',
+    notes: appointment.notes ?? '',
+    status: appointment.status,
+    price: String(appointment.price ?? 0),
+    depositAmount: String(appointment.depositAmount ?? 0),
+    depositPaid: appointment.depositPaid,
+  });
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>(appointment.serviceIds ?? []);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const toggleService = (serviceId: string) => {
+    setSelectedServiceIds((prev) =>
+      prev.includes(serviceId) ? prev.filter((id) => id !== serviceId) : [...prev, serviceId]
+    );
+  };
+
+  const submit = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) throw new Error('Không tìm thấy token xác thực. Vui lòng đăng nhập lại.');
+
+      const price = Number(form.price);
+      const depositAmount = Number(form.depositAmount);
+
+      if (!Number.isFinite(price) || price < 0) {
+        throw new Error('Giá không hợp lệ.');
+      }
+      if (!Number.isFinite(depositAmount) || depositAmount < 0) {
+        throw new Error('Tiền cọc không hợp lệ.');
+      }
+
+      const trimmedCustomerName = form.customerName.trim();
+      const trimmedCustomerPhone = form.customerPhone.trim();
+      const trimmedCustomerEmail = form.customerEmail.trim();
+      const trimmedNotes = form.notes.trim();
+
+      const payload: AppointmentUpdatePayload = {
+        ...(form.stylistId ? { stylistId: form.stylistId } : {}),
+        ...(form.hairstyleId ? { hairstyleId: form.hairstyleId } : {}),
+        ...(selectedServiceIds.length > 0 ? { serviceIds: selectedServiceIds } : {}),
+        ...(trimmedCustomerName ? { customerName: trimmedCustomerName } : {}),
+        ...(trimmedCustomerPhone ? { customerPhone: trimmedCustomerPhone } : {}),
+        ...(trimmedCustomerEmail ? { customerEmail: trimmedCustomerEmail } : {}),
+        ...(trimmedNotes ? { notes: trimmedNotes } : {}),
+        status: form.status,
+        price,
+        depositAmount,
+        depositPaid: form.depositPaid,
+      };
+
+      const response = await fetch(`http://localhost:3003/api/v1/appointments/${appointment.id}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || (typeof result.statusCode === 'number' && result.statusCode >= 400)) {
+        throw new Error(result.message || 'Không thể cập nhật lịch hẹn');
+      }
+
+      onSuccess();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Có lỗi xảy ra khi cập nhật lịch hẹn');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="bg-card text-card-foreground rounded-xl border border-border shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border/50 shrink-0">
+          <h2 className="text-base font-semibold">Chỉnh sửa lịch hẹn</h2>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted transition-colors">
+            <IconX className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm">Thợ cắt tóc</label>
+              <select
+                value={form.stylistId}
+                onChange={(e) => setForm((prev) => ({ ...prev, stylistId: e.target.value }))}
+                className="mt-1 w-full px-3 py-2 border border-input rounded-lg bg-background"
+              >
+                <option value="">-- Chọn stylist --</option>
+                {stylists.map((s) => (
+                  <option key={s.id} value={s.id}>{s.fullName || s.name || s.id}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-sm">Kiểu tóc</label>
+              <select
+                value={form.hairstyleId}
+                onChange={(e) => setForm((prev) => ({ ...prev, hairstyleId: e.target.value }))}
+                className="mt-1 w-full px-3 py-2 border border-input rounded-lg bg-background"
+              >
+                <option value="">-- Chọn kiểu tóc --</option>
+                {hairstyles.map((h) => (
+                  <option key={h.id} value={h.id}>{h.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-sm">Dịch vụ (serviceIds)</label>
+            <div className="mt-1 border border-border rounded-lg p-3 max-h-36 overflow-y-auto space-y-2">
+              {services.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Không có dữ liệu dịch vụ</p>
+              ) : (
+                services.map((service) => (
+                  <label key={service.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedServiceIds.includes(service.id)}
+                      onChange={() => toggleService(service.id)}
+                    />
+                    <span>{service.name}</span>
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm">Ngày hẹn</label>
+              <input
+                type="date"
+                value={form.appointmentDate}
+                disabled
+                className="mt-1 w-full px-3 py-2 border border-input rounded-lg bg-muted text-muted-foreground cursor-not-allowed"
+              />
+            </div>
+            <div>
+              <label className="text-sm">Giờ bắt đầu</label>
+              <input
+                type="time"
+                value={form.startTime}
+                disabled
+                className="mt-1 w-full px-3 py-2 border border-input rounded-lg bg-muted text-muted-foreground cursor-not-allowed"
+              />
+            </div>
+            <div>
+              <label className="text-sm">Thời lượng (phút)</label>
+              <input
+                type="number"
+                value={form.duration}
+                disabled
+                className="mt-1 w-full px-3 py-2 border border-input rounded-lg bg-muted text-muted-foreground cursor-not-allowed"
+              />
+            </div>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Thời gian lịch hẹn không thể chỉnh sửa ở màn hình này.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm">Tên khách hàng</label>
+              <input value={form.customerName} onChange={(e) => setForm((prev) => ({ ...prev, customerName: e.target.value }))} className="mt-1 w-full px-3 py-2 border border-input rounded-lg bg-background" />
+            </div>
+            <div>
+              <label className="text-sm">Số điện thoại</label>
+              <input value={form.customerPhone} onChange={(e) => setForm((prev) => ({ ...prev, customerPhone: e.target.value }))} className="mt-1 w-full px-3 py-2 border border-input rounded-lg bg-background" />
+            </div>
+            <div>
+              <label className="text-sm">Email</label>
+              <input type="email" value={form.customerEmail} onChange={(e) => setForm((prev) => ({ ...prev, customerEmail: e.target.value }))} className="mt-1 w-full px-3 py-2 border border-input rounded-lg bg-background" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm">Trạng thái</label>
+              <select
+                value={form.status}
+                onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value as Appointment['status'] }))}
+                className="mt-1 w-full px-3 py-2 border border-input rounded-lg bg-background"
+              >
+                <option value="pending">Chờ xác nhận</option>
+                <option value="confirmed">Đã xác nhận</option>
+                <option value="completed">Hoàn thành</option>
+                <option value="cancelled">Đã hủy</option>
+                <option value="no_show">Vắng mặt</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-sm">Giá</label>
+              <input type="number" min={0} value={form.price} onChange={(e) => setForm((prev) => ({ ...prev, price: e.target.value }))} className="mt-1 w-full px-3 py-2 border border-input rounded-lg bg-background" />
+            </div>
+            <div>
+              <label className="text-sm">Tiền cọc</label>
+              <input type="number" min={0} value={form.depositAmount} onChange={(e) => setForm((prev) => ({ ...prev, depositAmount: e.target.value }))} className="mt-1 w-full px-3 py-2 border border-input rounded-lg bg-background" />
+            </div>
+          </div>
+
+          <div>
+            <label className="inline-flex items-center gap-2 cursor-pointer text-sm">
+              <input
+                type="checkbox"
+                checked={form.depositPaid}
+                onChange={(e) => setForm((prev) => ({ ...prev, depositPaid: e.target.checked }))}
+              />
+              Đã thanh toán cọc
+            </label>
+          </div>
+
+          <div>
+            <label className="text-sm">Ghi chú</label>
+            <textarea
+              value={form.notes}
+              onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
+              className="mt-1 w-full min-h-20 px-3 py-2 border border-input rounded-lg bg-background"
+            />
+          </div>
+
+          {error && (
+            <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/30 px-3 py-2 text-sm text-red-600 dark:text-red-400">
+              {error}
+            </div>
+          )}
+        </div>
+
+        <div className="px-6 py-4 border-t border-border bg-muted/20 shrink-0 flex justify-end gap-2">
+          <button className="px-4 py-2 text-sm border border-border rounded-lg" onClick={onClose} disabled={loading}>Hủy</button>
+          <button className="px-4 py-2 text-sm rounded-lg bg-primary text-primary-foreground" onClick={submit} disabled={loading}>
+            {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AppointmentsPage() {
   const [stats, setStats] = useState<OverviewStats | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [stylists, setStylists] = useState<RefStylist[]>([]);
+  const [hairstyles, setHairstyles] = useState<RefHairstyle[]>([]);
+  const [services, setServices] = useState<RefService[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
+  const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
 
-  useEffect(() => {
+  const fetchDashboardData = useCallback(async () => {
     const token = localStorage.getItem('accessToken');
     if (!token) {
       setError('Không tìm thấy token. Vui lòng đăng nhập lại.');
@@ -419,19 +726,53 @@ export default function AppointmentsPage() {
       return;
     }
 
+    setLoading(true);
+    setError(null);
     const headers = { Authorization: `Bearer ${token}` };
 
-    Promise.all([
-      fetch('http://localhost:3003/api/v1/appointments/stats/overview', { headers }).then(r => r.json()),
-      fetch('http://localhost:3003/api/v1/appointments/', { headers }).then(r => r.json()),
-    ])
-      .then(([statsRes, aptsRes]) => {
-        if (statsRes.statusCode === 200) setStats(statsRes.data);
-        if (aptsRes.statusCode === 200) setAppointments(aptsRes.data);
-      })
-      .catch(() => setError('Lỗi kết nối. Vui lòng thử lại.'))
-      .finally(() => setLoading(false));
+    try {
+      const [statsRes, aptsRes] = await Promise.all([
+        fetch('http://localhost:3003/api/v1/appointments/stats/overview', { headers }).then(r => r.json()),
+        fetch('http://localhost:3003/api/v1/appointments/', { headers }).then(r => r.json()),
+      ]);
+
+      if (statsRes.statusCode === 200) setStats(statsRes.data);
+      if (aptsRes.statusCode === 200) setAppointments(aptsRes.data);
+    } catch {
+      setError('Lỗi kết nối. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  const fetchReferenceData = useCallback(async () => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
+
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+
+    try {
+      const [stylistsRes, hairstylesRes, servicesRes] = await Promise.all([
+        fetch('http://localhost:3002/api/v1/hairstyles/stylists/all', { headers }).then(r => r.json()),
+        fetch('http://localhost:3002/api/v1/hairstyles', { headers }).then(r => r.json()),
+        fetch('http://localhost:3003/api/v1/services').then(r => r.json()),
+      ]);
+
+      if (stylistsRes.statusCode === 200) setStylists(stylistsRes.data ?? []);
+      if (hairstylesRes.statusCode === 200) setHairstyles(hairstylesRes.data ?? []);
+      if (servicesRes.statusCode === 200) setServices(servicesRes.data ?? []);
+    } catch {
+      // Keep page usable even if references fail.
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchDashboardData();
+    void fetchReferenceData();
+  }, [fetchDashboardData, fetchReferenceData]);
 
   const filtered = appointments.filter(a => {
     const matchSearch =
@@ -575,7 +916,7 @@ export default function AppointmentsPage() {
                     <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Giá</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Đặt cọc</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Ghi chú</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Chi tiết</th>
+                    <th className="text-center px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -657,15 +998,24 @@ export default function AppointmentsPage() {
                           )}
                         </td>
 
-                        {/* View detail button */}
+                        {/* Actions */}
                         <td className="px-4 py-3.5 text-center">
-                          <button
-                            onClick={() => setSelectedAppointmentId(apt.id)}
-                            title="Xem chi tiết"
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-border bg-background hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 dark:hover:bg-blue-950/30 dark:hover:border-blue-700 dark:hover:text-blue-400 text-muted-foreground transition-colors"
-                          >
-                            <IconEye className="w-4 h-4" />
-                          </button>
+                          <div className="inline-flex items-center gap-2">
+                            <button
+                              onClick={() => setEditingAppointment(apt)}
+                              title="Chỉnh sửa"
+                              className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-border bg-background hover:bg-amber-50 hover:border-amber-300 hover:text-amber-600 dark:hover:bg-amber-950/30 dark:hover:border-amber-700 dark:hover:text-amber-400 text-muted-foreground transition-colors"
+                            >
+                              <IconPencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => setSelectedAppointmentId(apt.id)}
+                              title="Xem chi tiết"
+                              className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-border bg-background hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 dark:hover:bg-blue-950/30 dark:hover:border-blue-700 dark:hover:text-blue-400 text-muted-foreground transition-colors"
+                            >
+                              <IconEye className="w-4 h-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -702,6 +1052,20 @@ export default function AppointmentsPage() {
           <AppointmentDetailModal
             appointmentId={selectedAppointmentId}
             onClose={() => setSelectedAppointmentId(null)}
+          />
+        )}
+
+        {editingAppointment && (
+          <AppointmentEditModal
+            appointment={editingAppointment}
+            stylists={stylists}
+            hairstyles={hairstyles}
+            services={services}
+            onClose={() => setEditingAppointment(null)}
+            onSuccess={() => {
+              setEditingAppointment(null);
+              void fetchDashboardData();
+            }}
           />
         )}
 

@@ -38,8 +38,6 @@ const STYLIST_HIDDEN_TITLES = new Set([
   "Delete Account",
 ]);
 
-const STYLIST_ONLY_TITLES = new Set(["Notification", "Service"]);
-
 const data = {
   user: {
     name: "admin01",
@@ -145,7 +143,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const visibleNavMain =
     normalizedRole === "stylist"
       ? data.navMain.filter((item) => !STYLIST_HIDDEN_TITLES.has(item.title))
-      : data.navMain.filter((item) => !STYLIST_ONLY_TITLES.has(item.title));
+      : data.navMain;
 
   // ✅ Cập nhật user data với email và name thực tế
   const userData = {

@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { IconClock, IconReload, IconUsers, IconPlus, IconX } from "@tabler/icons-react";
+import { IconClock, IconReload, IconUsers, IconPlus, IconX, IconPencil, IconTrash } from "@tabler/icons-react";
 
 interface Hairstyle {
 	id: string;
@@ -99,6 +99,8 @@ interface CreateDialogProps {
 	onSuccess: () => void;
 	stylists: Stylist[];
 	categories: HairCategory[];
+	mode: "create" | "edit";
+	initialData?: Hairstyle | null;
 }
 
 function CreateHairstyleDialog({
@@ -107,6 +109,8 @@ function CreateHairstyleDialog({
   onSuccess,
   stylists,
   categories,
+  mode,
+  initialData,
 }: CreateDialogProps) {
   const [formData, setFormData] = useState({
     name: "",
@@ -127,6 +131,46 @@ function CreateHairstyleDialog({
   const [error, setError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isEditMode = mode === "edit";
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (isEditMode && initialData) {
+      const matchedCategory = categories.find(
+        (c) => c.id === initialData.category || c.slug === initialData.category
+      );
+
+      setFormData({
+        name: initialData.name ?? "",
+        description: initialData.description ?? "",
+        price: String(initialData.price ?? ""),
+        duration: String(initialData.duration ?? ""),
+        imageUrl: initialData.imageUrl ?? "",
+      });
+      setSelectedCategoryId(matchedCategory?.id ?? "");
+      setDifficulty(initialData.difficulty ?? "");
+      setSelectedStylists(initialData.stylistIds ?? []);
+      setImageFile(null);
+      setImagePreview(initialData.imageUrl ?? null);
+      setError(null);
+      return;
+    }
+
+    setFormData({
+      name: "",
+      description: "",
+      price: "",
+      duration: "",
+      imageUrl: "",
+    });
+    setSelectedCategoryId("");
+    setDifficulty("");
+    setSelectedStylists([]);
+    setImageFile(null);
+    setImagePreview(null);
+    setError(null);
+  }, [isOpen, isEditMode, initialData, categories]);
 
   // ─── HANDLE IMAGE ─────────────────────────────────────
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -195,7 +239,9 @@ function CreateHairstyleDialog({
 
       // ✅ đúng backend yêu cầu
       form.append("category", selectedCategory.slug);
-      form.append("category_id", selectedCategory.id);
+      if (!isEditMode) {
+        form.append("category_id", selectedCategory.id);
+      }
 
       form.append("isActive", "true");
 
@@ -209,20 +255,21 @@ function CreateHairstyleDialog({
         form.append("imageUrl", formData.imageUrl);
       }
 
-      const res = await fetch(
-        "http://localhost:3002/api/v1/hairstyles",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: form,
-        }
-      );
+      const endpoint = isEditMode && initialData
+        ? `http://localhost:3002/api/v1/hairstyles/${initialData.id}`
+        : "http://localhost:3002/api/v1/hairstyles";
+
+      const res = await fetch(endpoint, {
+        method: isEditMode ? "PUT" : "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: form,
+      });
 
       if (!res.ok) {
         const err = await res.json().catch(() => null);
-        throw new Error(err?.message || "Tạo thất bại");
+        throw new Error(err?.message || (isEditMode ? "Cập nhật thất bại" : "Tạo thất bại"));
       }
 
       // ✅ success
@@ -264,7 +311,7 @@ function CreateHairstyleDialog({
       <div className="relative bg-card border border-border rounded-xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="px-6 py-4 border-b border-border bg-muted/30 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Tạo kiểu tóc mới</h2>
+          <h2 className="text-lg font-semibold">{isEditMode ? "Chỉnh sửa kiểu tóc" : "Tạo kiểu tóc mới"}</h2>
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg hover:bg-muted transition-colors"
@@ -461,12 +508,12 @@ function CreateHairstyleDialog({
             {isSubmitting ? (
               <span className="flex items-center gap-2">
                 <span className="h-3.5 w-3.5 rounded-full border-2 border-primary-foreground border-t-transparent animate-spin" />
-                Đang tạo...
+                {isEditMode ? "Đang cập nhật..." : "Đang tạo..."}
               </span>
             ) : (
               <span className="flex items-center gap-2">
                 <IconPlus className="w-4 h-4" />
-                Tạo mới
+                {isEditMode ? "Lưu thay đổi" : "Tạo mới"}
               </span>
             )}
           </Button>
@@ -484,6 +531,9 @@ export default function HairStylePage() {
 	const [stylists, setStylists] = useState<Stylist[]>([]);
 	const [categories, setCategories] = useState<HairCategory[]>([]);
 	const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
+  const [editingHairstyle, setEditingHairstyle] = useState<Hairstyle | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
 	const fetchStylists = async () => {
 		try {
@@ -571,6 +621,49 @@ export default function HairStylePage() {
 		fetchCategories();
 	}, []);
 
+  const openCreateDialog = () => {
+    setDialogMode("create");
+    setEditingHairstyle(null);
+    setShowCreateDialog(true);
+  };
+
+  const openEditDialog = (item: Hairstyle) => {
+    setDialogMode("edit");
+    setEditingHairstyle(item);
+    setShowCreateDialog(true);
+  };
+
+  const handleDeleteHairstyle = async (id: string) => {
+    const confirmed = window.confirm("Bạn có chắc muốn xóa kiểu tóc này không?");
+    if (!confirmed) return;
+
+    setDeletingId(id);
+    try {
+      const token = localStorage.getItem("accessToken");
+      if (!token) {
+        throw new Error("Không tìm thấy token xác thực. Vui lòng đăng nhập lại.");
+      }
+
+      const response = await fetch(`http://localhost:3002/api/v1/hairstyles/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => null);
+        throw new Error(err?.message || "Không thể xóa kiểu tóc");
+      }
+
+      await fetchHairstyles();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Có lỗi xảy ra khi xóa kiểu tóc");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
 	const renderContent = () => {
 		if (error) {
 			return (
@@ -614,7 +707,7 @@ export default function HairStylePage() {
 							: `Tổng ${hairstyles.length} kiểu tóc`}
 					</div>
 					<div className="flex items-center gap-2">
-						<Button variant="outline" size="sm" onClick={() => setShowCreateDialog(true)}>
+            <Button variant="outline" size="sm" onClick={openCreateDialog}>
 							<IconPlus className="h-4 w-4" />
 							Tạo mới
 						</Button>
@@ -673,6 +766,27 @@ export default function HairStylePage() {
 										{item.category.replaceAll("_", " ")}
 									</Badge>
 								</div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openEditDialog(item)}
+                    disabled={deletingId === item.id}
+                  >
+                    <IconPencil className="h-4 w-4" />
+                    Sửa
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDeleteHairstyle(item.id)}
+                    disabled={deletingId === item.id}
+                  >
+                    <IconTrash className="h-4 w-4" />
+                    {deletingId === item.id ? "Đang xóa..." : "Xóa"}
+                  </Button>
+                </div>
 							</CardContent>
 						</Card>
 					))}
@@ -721,10 +835,14 @@ export default function HairStylePage() {
 				onClose={() => setShowCreateDialog(false)}
 				onSuccess={() => {
 					setShowCreateDialog(false);
+          setEditingHairstyle(null);
+          setDialogMode("create");
 					fetchHairstyles();
 				}}
 				stylists={stylists}
 				categories={categories}
+        mode={dialogMode}
+        initialData={editingHairstyle}
 			/>
 		</SidebarProvider>
 	);

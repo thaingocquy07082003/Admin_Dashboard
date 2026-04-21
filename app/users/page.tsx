@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect, useRef } from "react";
-import { IconReload, IconEye, IconEdit, IconX, IconStar, IconCalendar, IconUpload } from "@tabler/icons-react";
+import { IconReload, IconEye, IconEdit, IconX, IconStar, IconCalendar, IconUpload, IconPlus } from "@tabler/icons-react";
 
 interface Stylist {
   id: string;
@@ -48,6 +48,15 @@ interface StylistDetailResponse {
   message: string;
   data: Stylist;
   timestamp: string;
+}
+
+interface CreateStylistPayload {
+  email: string;
+  password: string;
+  fullName: string;
+  phone?: string;
+  experience?: number;
+  specialties?: string[];
 }
 
 // ─── View Detail Dialog ───────────────────────────────────────────────────────
@@ -377,6 +386,202 @@ function EditDialog({
   );
 }
 
+// ─── Create Dialog ───────────────────────────────────────────────────────────
+function CreateStylistDialog({
+  onClose,
+  onSuccess,
+}: {
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [experience, setExperience] = useState("0");
+  const [specialtiesText, setSpecialtiesText] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    setError(null);
+
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+    const trimmedFullName = fullName.trim();
+    const trimmedPhone = phone.trim();
+    const parsedExperience = experience.trim() === "" ? 0 : Number(experience);
+    const specialties = specialtiesText
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    if (!trimmedEmail || !trimmedPassword || !trimmedFullName) {
+      setError("Email, mật khẩu và họ tên là bắt buộc.");
+      return;
+    }
+
+    if (!Number.isFinite(parsedExperience) || parsedExperience < 0) {
+      setError("Kinh nghiệm phải là số không âm.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const token = localStorage.getItem("accessToken");
+      if (!token) {
+        throw new Error("Không tìm thấy token xác thực. Vui lòng đăng nhập lại.");
+      }
+
+      const payload: CreateStylistPayload = {
+        email: trimmedEmail,
+        password: trimmedPassword,
+        fullName: trimmedFullName,
+        ...(trimmedPhone ? { phone: trimmedPhone } : {}),
+        experience: parsedExperience,
+        ...(specialties.length > 0 ? { specialties } : {}),
+      };
+
+      const response = await fetch("http://localhost:3001/api/v1/auth/create-stylist", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(result?.message ?? "Tạo stylist thất bại");
+      }
+
+      onSuccess();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Đã có lỗi xảy ra");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      <div className="relative z-10 w-full max-w-lg mx-4 bg-card border border-border rounded-xl shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h2 className="text-base font-semibold">Tạo stylist mới</h2>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
+            <IconX className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="px-6 py-5 flex flex-col gap-4 max-h-[75vh] overflow-y-auto">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="create-email" className="text-xs font-medium">
+              Email <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="create-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="stylistSSR@example.com"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="create-password" className="text-xs font-medium">
+              Mật khẩu <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="create-password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="password123"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="create-fullName" className="text-xs font-medium">
+              Họ và tên <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="create-fullName"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="Nguyễn Văn A"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="create-phone" className="text-xs font-medium">Số điện thoại</Label>
+              <Input
+                id="create-phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="0901234567"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="create-experience" className="text-xs font-medium">Kinh nghiệm (năm)</Label>
+              <Input
+                id="create-experience"
+                type="number"
+                min={0}
+                value={experience}
+                onChange={(e) => setExperience(e.target.value)}
+                placeholder="3"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="create-specialties" className="text-xs font-medium">Chuyên môn</Label>
+            <Input
+              id="create-specialties"
+              value={specialtiesText}
+              onChange={(e) => setSpecialtiesText(e.target.value)}
+              placeholder="Cắt tóc nam, Uốn tóc"
+            />
+            <p className="text-xs text-muted-foreground">Nhập nhiều chuyên môn, ngăn cách bằng dấu phẩy.</p>
+          </div>
+
+          {error && (
+            <div className="rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-3 py-2 text-sm text-red-600 dark:text-red-400">
+              {error}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border">
+          <Button variant="outline" size="sm" onClick={onClose} disabled={isSubmitting}>
+            Hủy
+          </Button>
+          <Button size="sm" onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? (
+              <span className="flex items-center gap-2">
+                <span className="h-3.5 w-3.5 rounded-full border-2 border-primary-foreground border-t-transparent animate-spin" />
+                Đang tạo...
+              </span>
+            ) : (
+              "Tạo stylist"
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function Page() {
   const [stylists, setStylists] = useState<Stylist[]>([]);
@@ -389,6 +594,7 @@ export default function Page() {
 
   // Edit state
   const [editStylist, setEditStylist] = useState<Stylist | null>(null);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const fetchStylists = async () => {
     try {
@@ -491,6 +697,17 @@ export default function Page() {
 
     return (
       <>
+        <div className="flex items-center justify-between px-4 py-4 border-b border-border">
+          <div>
+            <p className="text-sm font-semibold">Danh sách stylist</p>
+            <p className="text-xs text-muted-foreground">Quản lý thợ cắt tóc và thông tin hồ sơ</p>
+          </div>
+          <Button size="sm" onClick={() => setIsCreateOpen(true)}>
+            <IconPlus className="h-4 w-4" />
+            Tạo stylist
+          </Button>
+        </div>
+
         <Table>
           <TableHeader>
             <TableRow>
@@ -644,6 +861,13 @@ export default function Page() {
         <EditDialog
           stylist={editStylist}
           onClose={() => setEditStylist(null)}
+          onSuccess={fetchStylists}
+        />
+      )}
+
+      {isCreateOpen && (
+        <CreateStylistDialog
+          onClose={() => setIsCreateOpen(false)}
           onSuccess={fetchStylists}
         />
       )}

@@ -1,15 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import {
-	IconBell,
-	IconTrash,
-	IconUsers,
-	IconUser,
-	IconAlertTriangle,
 	IconInfoCircle,
-	IconMessageCircle,
 	IconPlus,
+	IconRefresh,
+	IconPencil,
+	IconTrash,
+	IconX,
 } from "@tabler/icons-react";
 
 import { AppSidebar } from "@/components/app-sidebar";
@@ -25,90 +23,30 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-
-type NotificationType = "info" | "warning" | "promotion";
-type NotificationAudience = "all" | "customer" | "stylist";
 
 interface NotificationItem {
 	id: string;
 	title: string;
-	message: string;
-	type: NotificationType;
-	audience: NotificationAudience;
+	content: string;
 	createdAt: string;
+	updatedAt: string;
 }
 
-const fakeNotifications: NotificationItem[] = [
-	{
-		id: "ntf-1001",
-		title: "Lịch hẹn mới cần xác nhận",
-		message: "Bạn có 3 lịch hẹn mới trong hôm nay. Vui lòng kiểm tra và xác nhận sớm.",
-		type: "info",
-		audience: "all",
-		createdAt: "2026-04-20T08:45:00.000Z",
-	},
-	{
-		id: "ntf-1002",
-		title: "Khuyến mãi cuối tuần",
-		message: "Áp dụng giảm 15% cho dịch vụ nhuộm tóc từ thứ 6 đến chủ nhật tuần này.",
-		type: "promotion",
-		audience: "customer",
-		createdAt: "2026-04-19T03:20:00.000Z",
-	},
-	{
-		id: "ntf-1003",
-		title: "Nhắc cập nhật lịch làm việc",
-		message: "Một số stylist chưa cập nhật lịch làm việc tuần tới. Hãy kiểm tra lại.",
-		type: "warning",
-		audience: "stylist",
-		createdAt: "2026-04-18T13:10:00.000Z",
-	},
-];
-
-function getTypeMeta(type: NotificationType) {
-	switch (type) {
-		case "warning":
-			return {
-				label: "Cảnh báo",
-				className:
-					"bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800",
-				icon: IconAlertTriangle,
-			};
-		case "promotion":
-			return {
-				label: "Khuyến mãi",
-				className:
-					"bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
-				icon: IconMessageCircle,
-			};
-		default:
-			return {
-				label: "Thông tin",
-				className:
-					"bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800",
-				icon: IconInfoCircle,
-			};
-	}
+interface NotificationsResponse {
+	statusCode: number;
+	message: string;
+	data: NotificationItem[];
+	meta?: {
+		total: number;
+		page: number;
+		limit: number;
+		totalPages: number;
+	};
+	timestamp?: string;
 }
 
-function getAudienceLabel(audience: NotificationAudience) {
-	switch (audience) {
-		case "customer":
-			return "Khách hàng";
-		case "stylist":
-			return "Stylist";
-		default:
-			return "Toàn bộ";
-	}
-}
+const NOTIFICATIONS_API_URL = "http://localhost:3002/api/v1/notifications";
 
 function formatDateTime(dateString: string) {
 	return new Date(dateString).toLocaleString("vi-VN", {
@@ -121,50 +59,142 @@ function formatDateTime(dateString: string) {
 }
 
 export default function NotificationPage() {
-	const [notifications, setNotifications] =
-		useState<NotificationItem[]>(fakeNotifications);
+	const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+	const [isLoading, setIsLoading] = useState(true);
+	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+	const [error, setError] = useState<string | null>(null);
 	const [title, setTitle] = useState("");
-	const [message, setMessage] = useState("");
-	const [type, setType] = useState<NotificationType>("info");
-	const [audience, setAudience] = useState<NotificationAudience>("all");
+	const [content, setContent] = useState("");
+	const [editingId, setEditingId] = useState<string | null>(null);
 
-	const audienceSummary = useMemo(
-		() => ({
-			customer: notifications.filter((item) => item.audience === "customer").length,
-			stylist: notifications.filter((item) => item.audience === "stylist").length,
-		}),
-		[notifications]
-	);
+	const getAuthToken = () => {
+		if (typeof window === "undefined") return null;
+		return localStorage.getItem("accessToken");
+	};
 
-	const handleAddNotification = () => {
+	const loadNotifications = useCallback(async () => {
+		try {
+			setIsLoading(true);
+			setError(null);
+
+			const response = await fetch(NOTIFICATIONS_API_URL, {
+				method: "GET",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				cache: "no-store",
+			});
+
+			const result: NotificationsResponse = await response.json();
+			if (!response.ok || result.statusCode >= 400) {
+				throw new Error(result.message || "Không thể tải danh sách thông báo");
+			}
+
+			setNotifications(Array.isArray(result.data) ? result.data : []);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Có lỗi xảy ra khi tải dữ liệu");
+		} finally {
+			setIsLoading(false);
+		}
+	}, []);
+
+	useEffect(() => {
+		void loadNotifications();
+	}, [loadNotifications]);
+
+	const handleAddNotification = async () => {
 		const trimmedTitle = title.trim();
-		const trimmedMessage = message.trim();
+		const trimmedContent = content.trim();
 
-		if (!trimmedTitle || !trimmedMessage) {
+		if (!trimmedTitle || !trimmedContent) {
 			return;
 		}
 
-		const newNotification: NotificationItem = {
-			id:
-				typeof crypto !== "undefined" && crypto.randomUUID
-					? crypto.randomUUID()
-					: `${Date.now()}`,
-			title: trimmedTitle,
-			message: trimmedMessage,
-			type,
-			audience,
-			createdAt: new Date().toISOString(),
-		};
+		setIsSubmitting(true);
+		try {
+			const token = getAuthToken();
+			if (!token) {
+				throw new Error("Không tìm thấy token xác thực. Vui lòng đăng nhập lại bằng tài khoản admin.");
+			}
 
-		setNotifications((prev) => [newNotification, ...prev]);
-		setTitle("");
-		setMessage("");
-		setType("info");
-		setAudience("all");
+			const endpoint = editingId
+				? `${NOTIFICATIONS_API_URL}/${editingId}`
+				: NOTIFICATIONS_API_URL;
+
+			const response = await fetch(endpoint, {
+				method: editingId ? "PUT" : "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({
+					title: trimmedTitle,
+					content: trimmedContent,
+				}),
+			});
+
+			const result = await response.json().catch(() => ({}));
+			if (!response.ok || (typeof result.statusCode === "number" && result.statusCode >= 400)) {
+				throw new Error(result.message || (editingId ? "Không thể cập nhật thông báo" : "Không thể tạo thông báo mới"));
+			}
+
+			setTitle("");
+			setContent("");
+			setEditingId(null);
+			await loadNotifications();
+		} catch (err) {
+			setError(err instanceof Error ? err.message : editingId ? "Có lỗi xảy ra khi cập nhật thông báo" : "Có lỗi xảy ra khi tạo thông báo");
+		} finally {
+			setIsSubmitting(false);
+		}
 	};
 
-	const handleDeleteNotification = (id: string) => {
-		setNotifications((prev) => prev.filter((item) => item.id !== id));
+	const handleStartEdit = (item: NotificationItem) => {
+		setError(null);
+		setEditingId(item.id);
+		setTitle(item.title);
+		setContent(item.content);
+	};
+
+	const handleCancelEdit = () => {
+		setEditingId(null);
+		setTitle("");
+		setContent("");
+		setError(null);
+	};
+
+	const handleDeleteNotification = async (id: string) => {
+		setActionLoadingId(id);
+		setError(null);
+		try {
+			const token = getAuthToken();
+			if (!token) {
+				throw new Error("Không tìm thấy token xác thực. Vui lòng đăng nhập lại bằng tài khoản admin.");
+			}
+
+			const response = await fetch(`${NOTIFICATIONS_API_URL}/${id}`, {
+				method: "DELETE",
+				headers: {
+					Authorization: `Bearer ${token}`,
+				},
+			});
+
+			const result = await response.json().catch(() => ({}));
+			if (!response.ok || (typeof result.statusCode === "number" && result.statusCode >= 400)) {
+				throw new Error(result.message || "Không thể xóa thông báo");
+			}
+
+			if (editingId === id) {
+				handleCancelEdit();
+			}
+
+			await loadNotifications();
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Có lỗi xảy ra khi xóa thông báo");
+		} finally {
+			setActionLoadingId(null);
+		}
 	};
 
 	return (
@@ -173,7 +203,7 @@ export default function NotificationPage() {
 				{
 					"--sidebar-width": "calc(var(--spacing) * 72)",
 					"--header-height": "calc(var(--spacing) * 12)",
-				} as React.CSSProperties
+				} as CSSProperties
 			}
 		>
 			<AppSidebar variant="inset" />
@@ -183,55 +213,22 @@ export default function NotificationPage() {
 					<div className="@container/main flex flex-1 flex-col gap-2">
 						<div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
 							<div className="space-y-4 px-4 lg:px-6">
-								<div className="grid gap-4 md:grid-cols-3">
-									<Card className="gap-3 py-5">
-										<CardHeader className="pb-0">
-											<CardDescription>Tổng thông báo</CardDescription>
-											<CardTitle className="text-2xl">{notifications.length}</CardTitle>
-										</CardHeader>
-										<CardContent className="pt-0">
-											<div className="flex items-center gap-2 text-muted-foreground text-sm">
-												<IconBell className="size-4" />
-												Tất cả thông báo hiện có
-											</div>
-										</CardContent>
-									</Card>
-
-									<Card className="gap-3 py-5">
-										<CardHeader className="pb-0">
-												<CardDescription>Nhóm khách hàng</CardDescription>
-												<CardTitle className="text-2xl">{audienceSummary.customer}</CardTitle>
-										</CardHeader>
-										<CardContent className="pt-0">
-											<div className="flex items-center gap-2 text-muted-foreground text-sm">
-													<IconUsers className="size-4" />
-													Thông báo gửi riêng cho khách hàng
-											</div>
-										</CardContent>
-									</Card>
-
-									<Card className="gap-3 py-5">
-										<CardHeader className="pb-0">
-												<CardDescription>Nhóm stylist</CardDescription>
-												<CardTitle className="text-2xl">{audienceSummary.stylist}</CardTitle>
-										</CardHeader>
-										<CardContent className="pt-0">
-											<div className="flex items-center gap-2 text-muted-foreground text-sm">
-													<IconUser className="size-4" />
-													Thông báo gửi riêng cho stylist
-											</div>
-										</CardContent>
-									</Card>
-								</div>
-
 								<Card>
 									<CardHeader>
-										<CardTitle>Tạo thông báo mới</CardTitle>
+										<CardTitle>{editingId ? "Chỉnh sửa thông báo" : "Tạo thông báo mới"}</CardTitle>
 										<CardDescription>
-											Dữ liệu đang dùng fake data để demo thêm và xóa thông báo.
+											{editingId
+												? "Cập nhật qua PUT /api/v1/notifications/:id (cần bearer token admin)."
+												: "Gửi trực tiếp tới POST /api/v1/notifications (cần bearer token admin)."}
 										</CardDescription>
 									</CardHeader>
 									<CardContent>
+										{error && (
+											<div className="mb-4 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+												{error}
+											</div>
+										)}
+
 										<div className="grid gap-4">
 											<div className="grid gap-2">
 												<Label htmlFor="notification-title">Tiêu đề</Label>
@@ -244,59 +241,29 @@ export default function NotificationPage() {
 											</div>
 
 											<div className="grid gap-2">
-												<Label htmlFor="notification-message">Nội dung</Label>
+												<Label htmlFor="notification-content">Nội dung</Label>
 												<textarea
-													id="notification-message"
+													id="notification-content"
 													className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 min-h-24 w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
 													placeholder="Nhập nội dung chi tiết thông báo"
-													value={message}
-													onChange={(e) => setMessage(e.target.value)}
+													value={content}
+													onChange={(e) => setContent(e.target.value)}
 												/>
 											</div>
 
-											<div className="grid gap-4 md:grid-cols-2">
-												<div className="grid gap-2">
-													<Label>Loại thông báo</Label>
-													<Select
-														value={type}
-														onValueChange={(value: NotificationType) => setType(value)}
-													>
-														<SelectTrigger className="w-full">
-															<SelectValue placeholder="Chọn loại" />
-														</SelectTrigger>
-														<SelectContent>
-															<SelectItem value="info">Thông tin</SelectItem>
-															<SelectItem value="warning">Cảnh báo</SelectItem>
-															<SelectItem value="promotion">Khuyến mãi</SelectItem>
-														</SelectContent>
-													</Select>
-												</div>
-
-												<div className="grid gap-2">
-													<Label>Nhóm nhận</Label>
-													<Select
-														value={audience}
-														onValueChange={(value: NotificationAudience) =>
-															setAudience(value)
-														}
-													>
-														<SelectTrigger className="w-full">
-															<SelectValue placeholder="Chọn nhóm nhận" />
-														</SelectTrigger>
-														<SelectContent>
-															<SelectItem value="all">Toàn bộ</SelectItem>
-															<SelectItem value="customer">Khách hàng</SelectItem>
-															<SelectItem value="stylist">Stylist</SelectItem>
-														</SelectContent>
-													</Select>
-												</div>
-											</div>
-
 											<div className="flex justify-end">
-												<Button onClick={handleAddNotification} className="gap-2">
+												<div className="flex gap-2">
+													{editingId && (
+														<Button variant="outline" onClick={handleCancelEdit} className="gap-2" disabled={isSubmitting}>
+															<IconX className="size-4" />
+															Hủy sửa
+														</Button>
+													)}
+													<Button onClick={handleAddNotification} className="gap-2" disabled={isSubmitting}>
 													<IconPlus className="size-4" />
-													Thêm thông báo
-												</Button>
+													{isSubmitting ? "Đang xử lý..." : editingId ? "Lưu thay đổi" : "Thêm thông báo"}
+													</Button>
+												</div>
 											</div>
 										</div>
 									</CardContent>
@@ -307,21 +274,26 @@ export default function NotificationPage() {
 										<div className="space-y-1">
 											<CardTitle>Danh sách thông báo</CardTitle>
 											<CardDescription>
-													Quản lý thông báo hiện có, tập trung tạo mới và xóa.
+													Dữ liệu được lấy từ GET /api/v1/notifications.
 											</CardDescription>
 										</div>
+										<Button variant="outline" size="sm" onClick={loadNotifications} disabled={isLoading} className="gap-2">
+											<IconRefresh className={isLoading ? "size-4 animate-spin" : "size-4"} />
+											Làm mới
+										</Button>
 									</CardHeader>
 									<CardContent>
-										{notifications.length === 0 ? (
+										{isLoading ? (
+											<div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+												Đang tải dữ liệu thông báo...
+											</div>
+										) : notifications.length === 0 ? (
 											<div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
 												Chưa có thông báo nào.
 											</div>
 										) : (
 											<div className="space-y-3">
 												{notifications.map((item) => {
-													const typeMeta = getTypeMeta(item.type);
-													const TypeIcon = typeMeta.icon;
-
 													return (
 														<div
 															key={item.id}
@@ -331,37 +303,40 @@ export default function NotificationPage() {
 																<div className="space-y-2">
 																	<div className="flex flex-wrap items-center gap-2">
 																		<h3 className="font-medium">{item.title}</h3>
-																		<Badge className={`border ${typeMeta.className}`}>
-																			<TypeIcon className="size-3.5" />
-																			{typeMeta.label}
+																		<Badge className="border bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800">
+																			<IconInfoCircle className="size-3.5" />
+																			Thông báo
 																		</Badge>
 																	</div>
 																	<p className="text-sm text-muted-foreground">
-																		{item.message}
+																		{item.content}
 																	</p>
 																	<div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-																		<span className="inline-flex items-center gap-1">
-																			{item.audience === "all" ? (
-																				<IconUsers className="size-3.5" />
-																			) : (
-																				<IconUser className="size-3.5" />
-																			)}
-																			{getAudienceLabel(item.audience)}
-																		</span>
 																		<span>{formatDateTime(item.createdAt)}</span>
+																		<span>Cập nhật: {formatDateTime(item.updatedAt)}</span>
 																	</div>
-																</div>
-
-																<div className="flex items-center gap-2">
-																	<Button
-																		variant="destructive"
-																		size="sm"
-																		onClick={() => handleDeleteNotification(item.id)}
-																		className="gap-1.5"
-																	>
-																		<IconTrash className="size-4" />
-																		Xóa
-																	</Button>
+																	<div className="flex items-center gap-2 pt-1">
+																		<Button
+																			variant="outline"
+																			size="sm"
+																			onClick={() => handleStartEdit(item)}
+																			disabled={isSubmitting || actionLoadingId === item.id}
+																			className="gap-1.5"
+																		>
+																			<IconPencil className="size-4" />
+																			Sửa
+																		</Button>
+																		<Button
+																			variant="destructive"
+																			size="sm"
+																			onClick={() => handleDeleteNotification(item.id)}
+																			disabled={isSubmitting || actionLoadingId === item.id}
+																			className="gap-1.5"
+																		>
+																			<IconTrash className="size-4" />
+																			{actionLoadingId === item.id ? "Đang xóa..." : "Xóa"}
+																		</Button>
+																	</div>
 																</div>
 															</div>
 														</div>
